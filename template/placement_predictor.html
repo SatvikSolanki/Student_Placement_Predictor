@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Placement Predictor</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 28px 16px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background: radial-gradient(circle at top, #1e1b4b 0%, var(--bg) 60%);
+    background-attachment: fixed;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  h1 { font-size: 1.6rem; margin: 0; }
+  .subtitle { color: var(--muted); margin: 4px 0 0; font-size: 0.95rem; }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.ok  { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .dot.bad { background: var(--danger); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+
+  .card h2 {
+    font-size: 0.85rem;
+    margin: 0 0 16px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  input, select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  }
+
+  input.invalid {
+    border-color: var(--danger);
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 10px 0 0;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+  }
+
+  button {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s, opacity 0.15s;
+  }
+
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-primary {
+    flex: 1;
+    min-width: 180px;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--bg); }
+
+  .result {
+    display: none;
+    text-align: center;
+    padding: 28px 20px;
+  }
+  .result.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+  .result .label {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 6px 0 10px;
+  }
+  .result.placed .label     { color: var(--success); }
+  .result.not-placed .label { color: var(--danger); }
+  .result p { color: var(--muted); margin: 0; }
+
+  .error {
+    display: none;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--danger);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+    white-space: pre-line;
+    font-size: 0.92rem;
+  }
+  .error.show { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 18px; }
+    .result .label { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div>
+      <h1>🎓 Placement Predictor</h1>
+      <p class="subtitle">Enter a student's details to predict placement outcome</p>
+    </div>
+    <div class="status" id="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Checking API…</span>
+    </div>
+  </header>
+
+  <form id="predictForm" novalidate>
+
+    <section class="card">
+      <h2>API connection</h2>
+      <label>
+        Base URL
+        <input type="text" id="apiUrl" value="http://127.0.0.1:8000" spellcheck="false">
+      </label>
+      <p class="hint">Address of your running FastAPI server.</p>
+    </section>
+
+    <section class="card">
+      <h2>Student profile</h2>
+      <div class="grid">
+        <label>
+          Gender
+          <select id="gender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </label>
+
+        <label>
+          Extracurricular activities
+          <select id="extracurricular">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+
+        <label>
+          Branch
+          <input type="text" id="branch" list="branchList" placeholder="e.g. CSE" autocomplete="off">
+          <datalist id="branchList">
+            <option value="CSE"></option>
+            <option value="ECE"></option>
+            <option value="ME"></option>
+            <option value="CE"></option>
+            <option value="EE"></option>
+            <option value="IT"></option>
+          </datalist>
+        </label>
+      </div>
+      <p class="hint">Branch must match a branch the model was trained on. Case doesn't matter.</p>
+    </section>
+
+    <section class="card">
+      <h2>Academic &amp; lifestyle</h2>
+      <div class="grid">
+        <label>
+          Study hours
+          <input type="number" id="study_hours" step="any" min="0" placeholder="e.g. 4">
+        </label>
+
+        <label>
+          Attendance (%)
+          <input type="number" id="attendance" step="any" min="0" placeholder="e.g. 85">
+        </label>
+
+        <label>
+          Sleep hours
+          <input type="number" id="sleep_hours" step="any" min="0" placeholder="e.g. 7">
+        </label>
+
+        <label>
+          Internet usage (hours)
+          <input type="number" id="internet_usage" step="any" min="0" placeholder="e.g. 2">
+        </label>
+
+        <label>
+          Assignments completed (%)
+          <input type="number" id="assignments_completed" step="any" min="0" placeholder="e.g. 90">
+        </label>
+
+        <label>
+          Previous score
+          <input type="number" id="previous_score" step="any" min="0" placeholder="e.g. 70">
+        </label>
+
+        <label>
+          Exam score
+          <input type="number" id="exam_score" step="any" min="0" placeholder="e.g. 75">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn-primary" id="submitBtn">Predict placement</button>
+        <button type="button" class="btn-ghost" id="sampleBtn">Fill sample</button>
+        <button type="button" class="btn-ghost" id="resetBtn">Clear</button>
+      </div>
+
+      <div class="error" id="error" role="alert"></div>
+    </section>
+
+  </form>
+
+  <section class="card result" id="result">
+    <h2>Prediction</h2>
+    <div class="label" id="resultLabel"></div>
+    <p id="resultText"></p>
+  </section>
+
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  const NUMERIC_FIELDS = [
+    "study_hours",
+    "attendance",
+    "sleep_hours",
+    "internet_usage",
+    "assignments_completed",
+    "previous_score",
+    "exam_score"
+  ];
+
+  const SAMPLE = {
+    gender: "male",
+    extracurricular: "yes",
+    branch: "CSE",
+    study_hours: 4,
+    attendance: 85,
+    sleep_hours: 7,
+    internet_usage: 2,
+    assignments_completed: 90,
+    previous_score: 70,
+    exam_score: 75
+  };
+
+  const URL_KEY = "placementApiUrl";
+
+  // ---------- helpers ----------
+
+  function baseUrl() {
+    return $("apiUrl").value.trim().replace(/\/+$/, "");
+  }
+
+  function setStatus(state, text) {
+    $("statusDot").className = "dot " + state;
+    $("statusText").textContent = text;
+  }
+
+  function showError(message) {
+    const box = $("error");
+    box.textContent = message;
+    box.classList.add("show");
+  }
+
+  function hideError() {
+    $("error").classList.remove("show");
+    $("error").textContent = "";
+  }
+
+  function hideResult() {
+    $("result").classList.remove("show", "placed", "not-placed");
+  }
+
+  function showResult(prediction) {
+    const placed = prediction === "Placed";
+    const box = $("result");
+    box.classList.remove("placed", "not-placed");
+    box.classList.add("show", placed ? "placed" : "not-placed");
+    $("resultLabel").textContent = prediction;
+    $("resultText").textContent = placed
+      ? "The model predicts this student will be placed."
+      : "The model predicts this student will not be placed.";
+  }
+
+  function clearInvalidMarks() {
+    document.querySelectorAll("input.invalid").forEach(el => el.classList.remove("invalid"));
+  }
+
+  // ---------- API ----------
+
+  async function checkHealth() {
+    setStatus("", "Checking API…");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(baseUrl() + "/", { signal: controller.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setStatus("ok", "API online");
+    } catch {
+      setStatus("bad", "API unreachable");
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function formatApiError(status, data) {
+    if (Array.isArray(data.detail)) {
+      const lines = data.detail.map(d => {
+        const field = (d.loc || []).slice(1).join(".") || "input";
+        return `• ${field}: ${d.msg}`;
+      });
+      return "Invalid input:\n" + lines.join("\n");
+    }
+    if (typeof data.detail === "string") return data.detail;
+    return `Server returned ${status}. Check the API logs.`;
+  }
+
+  // ---------- form ----------
+
+  function buildPayload() {
+    const payload = {
+      gender: $("gender").value,
+      extracurricular: $("extracurricular").value,
+      branch: $("branch").value.trim()
+    };
+    for (const field of NUMERIC_FIELDS) {
+      payload[field] = parseFloat($(field).value);
+    }
+    return payload;
+  }
+
+  function validate(payload) {
+    clearInvalidMarks();
+    const problems = [];
+
+    if (!payload.branch) {
+      $("branch").classList.add("invalid");
+      problems.push("Branch is required.");
+    }
+
+    for (const field of NUMERIC_FIELDS) {
+      if (!Number.isFinite(payload[field])) {
+        $(field).classList.add("invalid");
+        problems.push(`${field.replace(/_/g, " ")} must be a number.`);
+      }
+    }
+
+    return problems.length ? problems.join("\n") : null;
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    hideError();
+    hideResult();
+
+    const payload = buildPayload();
+    const problem = validate(payload);
+    if (problem) {
+      showError(problem);
+      return;
+    }
+
+    const btn = $("submitBtn");
+    btn.disabled = true;
+    btn.textContent = "Predicting…";
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const res = await fetch(baseUrl() + "/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(formatApiError(res.status, data));
+
+      showResult(data.prediction);
+      setStatus("ok", "API online");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showError("The request timed out. Is the server running?");
+      } else if (err instanceof TypeError) {
+        showError(
+          `Could not reach the API at ${baseUrl()}.\n` +
+          "Check that the server is running and that CORS is enabled."
+        );
+        setStatus("bad", "API unreachable");
+      } else {
+        showError(err.message);
+      }
+    } finally {
+      clearTimeout(timer);
+      btn.disabled = false;
+      btn.textContent = "Predict placement";
+    }
+  }
+
+  function fillSample() {
+    $("gender").value = SAMPLE.gender;
+    $("extracurricular").value = SAMPLE.extracurricular;
+    $("branch").value = SAMPLE.branch;
+    for (const field of NUMERIC_FIELDS) {
+      $(field).value = SAMPLE[field];
+    }
+    clearInvalidMarks();
+    hideError();
+  }
+
+  function clearForm() {
+    $("predictForm").reset();
+    $("gender").value = "male";
+    $("extracurricular").value = "yes";
+    clearInvalidMarks();
+    hideError();
+    hideResult();
+  }
+
+  // ---------- init ----------
+
+  function restoreApiUrl() {
+    try {
+      const saved = localStorage.getItem(URL_KEY);
+      if (saved) $("apiUrl").value = saved;
+    } catch {
+      // storage unavailable; keep the default
+    }
+  }
+
+  function saveApiUrl() {
+    try {
+      localStorage.setItem(URL_KEY, $("apiUrl").value.trim());
+    } catch {
+      // storage unavailable; ignore
+    }
+  }
+
+  function init() {
+    restoreApiUrl();
+
+    $("predictForm").addEventListener("submit", handleSubmit);
+    $("sampleBtn").addEventListener("click", fillSample);
+    $("resetBtn").addEventListener("click", clearForm);
+
+    $("apiUrl").addEventListener("change", () => {
+      saveApiUrl();
+      checkHealth();
+    });
+
+    checkHealth();
+  }
+
+  init();
+</script>
+
+</body>
+</html>
